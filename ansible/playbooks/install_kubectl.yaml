@@ -1,0 +1,36 @@
+---
+- name: Install kubectl on Ubuntu
+  hosts: servers
+  become: yes
+  tasks:
+    - name: Download kubectl binary
+      ansible.builtin.get_url:
+        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+        dest: /tmp/kubectl
+        mode: '0755'
+      vars:
+        kubectl_version: "{{ lookup('url', 'https://dl.k8s.io/release/stable.txt') }}"
+
+    - name: Install kubectl
+      ansible.builtin.command:
+        cmd: install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+
+    - name: Ensure .kube directory exists
+      ansible.builtin.file:
+        path: "/home/{{ ansible_ssh_user }}/.kube"
+        state: directory
+        owner: "{{ ansible_ssh_user }}"
+        mode: '0755'
+
+    - name: Configure kubectl with MicroK8s config
+      ansible.builtin.shell:
+        cmd: microk8s config > /home/{{ ansible_ssh_user }}/.kube/config
+      args:
+        executable: /bin/bash
+      become_user: "{{ ansible_ssh_user }}"
+
+    - name: Set ownership of .kube/config
+      ansible.builtin.file:
+        path: "/home/{{ ansible_ssh_user }}/.kube/config"
+        owner: "{{ ansible_ssh_user }}"
+        mode: '0644'
